@@ -1,0 +1,20 @@
+# Java
+tradepilot-core/target/
+*.class
+
+# Python
+tradepilot-ai-service/venv/
+tradepilot-ai-service/__pycache__/
+tradepilot-ai-service/*.pyc
+tradepilot-ai-service/.env
+
+# Spring Boot secrets
+tradepilot-core/src/main/resources/application-local.yml
+
+# IntelliJ
+.idea/
+*.iml
+
+# OS
+.DS_Store
+Thumbs.db
