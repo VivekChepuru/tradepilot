@@ -11,9 +11,9 @@ async def process_message(event: dict):
     Real implementation: entity extraction → intent classification
     → confidence scoring → response generation.
     """
-    whatsapp_message_id = event.get("whatsappMessageId", "unknown")
-    from_number = event.get("fromNumber", "unknown")
-    text_content = event.get("textContent", "")
+    whatsapp_message_id = event.get("messageId", "unknown")
+    from_number = event.get("from", "unknown")
+    text_content = event.get("textBody", "")
 
     logger.info("Processing message %s from %s: %s",
                 whatsapp_message_id, from_number, text_content)
