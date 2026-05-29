@@ -1,25 +1,46 @@
+import json
 import logging
+import re
 from datetime import datetime, timezone
+
+from json_repair import repair_json
+
+import httpx
+
 from app.kafka.producer import publish_ai_result
 
 logger = logging.getLogger(__name__)
 
-async def process_message(event: dict):
-    """
-    Main AI processing pipeline.
-    Currently a stub — returns a hardcoded result.
-    Real implementation: entity extraction → intent classification
-    → confidence scoring → response generation.
-    """
-    whatsapp_message_id = event.get("messageId", "unknown")
-    from_number = event.get("from", "unknown")
-    text_content = event.get("textBody", "")
+OLLAMA_URL = "http://localhost:11434/api/chat"
+OLLAMA_MODEL = "phi3:mini"
+OLLAMA_TIMEOUT = httpx.Timeout(connect=5.0, read=120.0, write=10.0, pool=5.0)
 
-    logger.info("Processing message %s from %s: %s",
-                whatsapp_message_id, from_number, text_content)
+INTENT_CLASSES = {
+    "price_inquiry",
+    "bulk_order",
+    "repeat_order",
+    "payment_follow_up",
+    "delivery_status",
+    "complaint",
+    "negotiation_counter",
+    "relationship_message",
+}
 
-    # STUB — hardcoded result until AI modules are built in Week 4
-    result = {
+SYSTEM_PROMPT = """Analyse the trade message. Reply with ONLY a JSON object, no preamble. Every value must be a short string or null. Maximum 5 words per value. Never explain or elaborate. If unsure about any field, return null. Do not guess or infer beyond what is explicitly stated. Use JSON null (no quotes) for absent fields, never the string "null". confidenceScore is a decimal number between 0.0 and 1.0 — NEVER null, NEVER omit this field. Use 0.5 if uncertain.
+
+{"detectedIntent":"price_inquiry|bulk_order|repeat_order|payment_follow_up|delivery_status|complaint|negotiation_counter|relationship_message","confidenceScore":0.0,"extractedEntities":{"commodity":null,"grade":null,"quantity":null,"unit":"MT|quintal|bundle|bag|piece or null","priceSignal":null,"paymentTerms":"advance|net-30|LC|other or null","deliveryTerms":"ex-works|ex-Mumbai|door delivery|other or null","urgencyMarker":"aaj|urgent|jaldi or null"}}"""
+
+
+def _determine_routing(confidence: float) -> str:
+    if confidence >= 0.85:
+        return "AUTO_SEND"
+    if confidence >= 0.50:
+        return "PENDING_APPROVAL"
+    return "ESCALATED"
+
+
+def _build_fallback(whatsapp_message_id: str, from_number: str) -> dict:
+    return {
         "whatsappMessageId": whatsapp_message_id,
         "fromNumber": from_number,
         "detectedIntent": "price_inquiry",
@@ -29,6 +50,136 @@ async def process_message(event: dict):
         "routingDecision": "ESCALATED",
         "processedAt": datetime.now(timezone.utc).isoformat(),
     }
+
+
+async def _call_ollama(text: str) -> dict:
+    payload = {
+        "model": OLLAMA_MODEL,
+        "messages": [
+            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "user", "content": text},
+        ],
+        "stream": False,
+        "options": {"temperature": 0.1, "num_predict": 500},
+    }
+    # trust=env=False prevents httpx from picking up HTTP_PROXY / HTTPS_PROXY
+    # environment variables, which can intercept localhost traffic on some machines.
+    async with httpx.AsyncClient(timeout=OLLAMA_TIMEOUT, trust_env=False) as client:
+        response = await client.post(OLLAMA_URL, json=payload)
+        response.raise_for_status()
+        return response.json()
+
+
+async def process_message(event: dict):
+    """
+    Main AI processing pipeline.
+    Calls Ollama (phi3:mini) for entity extraction + intent classification,
+    then routes based on confidence score.
+    """
+    whatsapp_message_id = event.get("messageId", "unknown")
+    from_number = event.get("from", "unknown")
+    text_content = event.get("textBody", "")
+
+    logger.info(
+        "Processing message %s from %s: %s",
+        whatsapp_message_id,
+        from_number,
+        text_content,
+    )
+
+    result = _build_fallback(whatsapp_message_id, from_number)
+
+    try:
+        ollama_response = await _call_ollama(text_content)
+        raw_content: str = ollama_response["message"]["content"].strip()
+
+        # Strip optional markdown code fences the model might emit despite instructions
+        if raw_content.startswith("```"):
+            lines = raw_content.splitlines()
+            raw_content = "\n".join(
+                line for line in lines if not line.startswith("```")
+            ).strip()
+
+        logger.debug("Ollama raw response for message %s: %r", whatsapp_message_id, raw_content)
+
+        match = re.search(r"\{.*\}", raw_content, re.DOTALL)
+        if match:
+            raw_content = match.group()
+
+        try:
+            parsed: dict = json.loads(raw_content)
+        except json.JSONDecodeError:
+            repaired = repair_json(raw_content)
+            parsed = json.loads(repaired)
+            logger.warning(
+                "Ollama response for message %s required JSON repair",
+                whatsapp_message_id,
+            )
+
+        intent = parsed.get("detectedIntent", "price_inquiry")
+        if intent not in INTENT_CLASSES:
+            logger.warning("Unknown intent '%s', defaulting to price_inquiry", intent)
+            intent = "price_inquiry"
+
+        confidence = float(parsed.get("confidenceScore") or 0.0)
+        confidence = max(0.0, min(1.0, confidence))
+
+        entities = parsed.get("extractedEntities", {})
+
+        result.update(
+            {
+                "detectedIntent": intent,
+                "confidenceScore": confidence,
+                "extractedEntities": entities,
+                "routingDecision": _determine_routing(confidence),
+                "processedAt": datetime.now(timezone.utc).isoformat(),
+            }
+        )
+
+        logger.info(
+            "Message %s → intent=%s confidence=%.2f routing=%s",
+            whatsapp_message_id,
+            intent,
+            confidence,
+            result["routingDecision"],
+        )
+
+    except json.JSONDecodeError as exc:
+        logger.error(
+            "Ollama JSON unparseable even after repair for message %s — raw: %r — error: %s",
+            whatsapp_message_id,
+            exc.doc,
+            exc,
+            exc_info=True,
+        )
+    except httpx.HTTPStatusError as exc:
+        # raise_for_status() path: Ollama returned 4xx/5xx
+        logger.error(
+            "Ollama returned HTTP %s for message %s — url=%s body=%r",
+            exc.response.status_code,
+            whatsapp_message_id,
+            exc.request.url,
+            exc.response.text[:500],
+            exc_info=True,
+        )
+    except httpx.TransportError as exc:
+        # Network-level failure: ConnectError, ConnectTimeout, ReadError, etc.
+        # str(exc) is often "" for anyio-backed transport errors; repr() always shows type+args.
+        logger.error(
+            "Ollama transport error for message %s — %s: %r",
+            whatsapp_message_id,
+            type(exc).__name__,
+            repr(exc),
+            exc_info=True,
+        )
+    except Exception as exc:
+        logger.error(
+            "Unexpected error processing message %s — %s: %r",
+            whatsapp_message_id,
+            type(exc).__name__,
+            repr(exc),
+            exc_info=True,
+        )
 
     await publish_ai_result(from_number, result)
     logger.info("AI result published for message %s", whatsapp_message_id)
