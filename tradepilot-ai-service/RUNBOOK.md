@@ -100,10 +100,14 @@ Spring Boot                    AI Service                     Kafka
 |---|---|---|
 | Kafka consumer | ✅ Working | app/kafka/consumer.py |
 | Kafka producer | ✅ Working | app/kafka/producer.py |
-| Entity extraction | 🔜 Week 4 | app/services/ai_pipeline.py |
-| Intent classification | 🔜 Week 4 | app/services/ai_pipeline.py |
-| Confidence scoring | 🔜 Week 4 | app/services/ai_pipeline.py |
+| Entity extraction | ✅ Working | app/services/ai_pipeline.py |
+| Intent classification | ✅ Working | app/services/ai_pipeline.py |
+| Confidence scoring | ✅ Working | app/services/ai_pipeline.py |
 | Response generation | 🔜 Week 5 | app/services/ai_pipeline.py |
+
+Current model: Phi-3 Mini via Ollama (localhost:11434)
+Inference time: 20-30s on CPU (i7-13700H, no GPU)
+Routing: AUTO_SEND ≥0.85 / PENDING_APPROVAL 0.50-0.84 / ESCALATED <0.50
 
 Current stub returns:
 ```json
@@ -143,7 +147,11 @@ pip install -r requirements.txt
 - [x] Kafka producer — publishes to tradepilot.ai.results
 - [x] Pydantic models for InboundMessageEvent and AiProcessingResult
 - [x] Health endpoint
-- [ ] Commodity entity extraction prompt
-- [ ] Intent classifier (8 classes)
-- [ ] Confidence scoring
-- [ ] Anthropic API integration
+- [x] Ollama integration with Phi-3 Mini
+- [x] Commodity entity extraction
+- [x] Intent classification (8 classes)
+- [x] Confidence scoring and routing logic
+- [x] json-repair fallback for malformed model output
+- [ ] Price engine integration (Week 5)
+- [ ] Response generation (Week 5)
+- [ ] Negotiation intelligence (Week 11)
