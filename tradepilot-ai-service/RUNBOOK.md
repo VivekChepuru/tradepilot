@@ -155,3 +155,30 @@ pip install -r requirements.txt
 - [ ] Price engine integration (Week 5)
 - [ ] Response generation (Week 5)
 - [ ] Negotiation intelligence (Week 11)
+
+---
+
+## 9. Local AI Model Setup
+
+TradePilot uses Ollama for local inference — no API key required.
+
+### Install Ollama
+Download from https://ollama.com/download and install.
+Ollama runs as a system tray app on Windows — launch it from Start menu.
+
+### Pull the model
+```powershell
+ollama pull phi3:mini
+```
+
+### Verify
+```powershell
+curl http://localhost:11434/api/tags
+```
+
+Should return phi3:mini in the models list.
+
+### Start order
+Ollama must be running before starting the AI service.
+It starts automatically on Windows login once installed.
+Check system tray for the llama icon to confirm it's running.
