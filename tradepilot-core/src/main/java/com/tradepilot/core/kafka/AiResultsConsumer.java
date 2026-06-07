@@ -1,6 +1,7 @@
 package com.tradepilot.core.kafka;
 
 import com.tradepilot.core.exception.PriceRuleNotFoundException;
+import com.tradepilot.core.trade.order.OrderService;
 import com.tradepilot.core.trade.pricing.PriceCalculationService;
 import com.tradepilot.core.trade.pricing.PriceQuote;
 import com.tradepilot.core.webhook.dto.AiResultEvent;
@@ -33,6 +34,7 @@ public class AiResultsConsumer {
 
     private final PriceCalculationService priceCalculationService;
     private final KafkaTemplate<String, Object> kafkaTemplate;
+    private final OrderService orderService;
 
     @Value("${tradepilot.kafka.topics.messages-outbound}")
     private String outboundTopic;
@@ -105,6 +107,12 @@ public class AiResultsConsumer {
 
         kafkaTemplate.send(outboundTopic, event.getFrom(), outbound);
         log.info("Published outbound event routingDecision={} for messageId={}", outbound.getRoutingDecision(), event.getMessageId());
+
+        if ("PRICE_QUOTED".equals(outbound.getRoutingDecision())) {
+            orderService.createOrUpdateFromQuote(outbound);
+            log.info("Order created/updated for messageId={} contact={} status=QUOTED",
+                    outbound.getWhatsappMessageId(), outbound.getFromNumber());
+        }
     }
 
     private String[] normalizeCommodityGrade(String commodity, String grade) {
