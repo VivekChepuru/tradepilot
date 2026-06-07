@@ -1,0 +1,3 @@
+-- Baseline migration: existing tables (users, chats, messages)
+-- were created by Hibernate prior to Flyway introduction.
+-- No changes needed here.

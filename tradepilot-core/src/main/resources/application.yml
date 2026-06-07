@@ -1,0 +1,64 @@
+spring:
+  application:
+    name: tradepilot-core
+
+  datasource:
+    url: jdbc:postgresql://localhost:5432/messengerdb
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+
+  jackson:
+    serialization:
+      write-dates-as-timestamps: false
+
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+    baseline-version: 0
+
+  kafka:
+    admin:
+      fail-fast: false
+    bootstrap-servers: localhost:9092
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      properties:
+        spring.json.add.type.headers: false
+    consumer:
+      group-id: tradepilot-core
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring.json.trusted.packages: "com.tradepilot.core.*"
+
+tradepilot:
+  kafka:
+    topics:
+      messages-inbound: tradepilot.messages.inbound
+      messages-outbound: tradepilot.messages.outbound
+      follow-up-jobs: tradepilot.follow.up.jobs
+      ai-results: tradepilot.ai.results
+  whatsapp:
+    simulation-mode: true
+    verify-token: tradepilot_webhook_secret_dev
+    api-version: v19.0
+    api-base-url: https://graph.facebook.com
+    phone-number-id: FILL_WHEN_META_UNBLOCKS
+    access-token: FILL_WHEN_META_UNBLOCKS
+
+logging:
+  level:
+    org.springframework.web.socket: DEBUG
+    org.springframework.messaging: DEBUG
+    org.springframework.web.socket.messaging: TRACE
