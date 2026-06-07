@@ -188,3 +188,15 @@ When Meta credentials are ready:
 3. Implement RealWhatsAppSenderService.send() in
    com.tradepilot.core.channel.RealWhatsAppSenderService
 4. No other changes needed — interface and routing logic unchanged
+
+- [x] Week 7 — Order state machine, TradeContact management
+
+## 12. Order Lifecycle
+
+Status transitions:
+INQUIRY → QUOTED → NEGOTIATING → CONFIRMED → DISPATCHED → DELIVERED
+Any non-terminal status → CANCELLED
+
+Auto-created when: price quote sent with routingDecision=PRICE_QUOTED
+Check orders: SELECT * FROM orders ORDER BY created_at DESC;
+Check contacts: SELECT * FROM trade_contacts;
