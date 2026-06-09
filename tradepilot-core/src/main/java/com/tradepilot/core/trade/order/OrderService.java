@@ -3,6 +3,7 @@ package com.tradepilot.core.trade.order;
 import com.tradepilot.core.trade.customer.TradeContact;
 import com.tradepilot.core.trade.customer.TradeContactRepository;
 import com.tradepilot.core.webhook.dto.OutboundMessageEvent;
+import com.tradepilot.core.workflow.FollowUpSchedulerService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -37,6 +38,7 @@ public class OrderService {
 
     private final OrderRepository orderRepository;
     private final TradeContactRepository tradeContactRepository;
+    private final FollowUpSchedulerService followUpSchedulerService;
 
     @Transactional
     public Order createOrUpdateFromQuote(OutboundMessageEvent event) {
@@ -77,7 +79,10 @@ public class OrderService {
                 .paymentStatus(PaymentStatus.PENDING)
                 .build();
 
-        return orderRepository.save(newOrder);
+        Order saved = orderRepository.save(newOrder);
+        followUpSchedulerService.scheduleInquiryFollowUps(saved, contact);
+        log.info("Scheduled inquiry follow-ups for orderId={} contact={}", saved.getId(), contact.getWhatsappNumber());
+        return saved;
     }
 
     @Transactional

@@ -17,6 +17,8 @@ import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 @Slf4j
 @Component
@@ -59,7 +61,7 @@ public class AiResultsConsumer {
         String commodity = safeString(entities, "commodity");
         String grade = safeString(entities, "grade");
         Object quantityRaw = entities != null ? entities.get("quantity") : null;
-        Double quantity = quantityRaw != null ? Double.parseDouble(quantityRaw.toString()) : null;
+        Double quantity = parseQuantitySafely(quantityRaw, event.getMessageId());
 
         String[] normalized = normalizeCommodityGrade(commodity, grade);
         commodity = normalized[0];
@@ -70,7 +72,7 @@ public class AiResultsConsumer {
         try {
             PriceQuote quote = priceCalculationService.calculateQuote(commodity, grade, quantity, null);
 
-            String commodityGrade = grade != null ? commodity + " " + grade : commodity;
+            String commodityGrade = quote.grade() != null ? quote.commodity() + " " + quote.grade() : quote.commodity();
             String suggestedReply = String.format(
                     "%s rate: ₹%s/%s (incl. GST). Valid today. Freight included.",
                     commodityGrade,
@@ -122,11 +124,45 @@ public class AiResultsConsumer {
                 return new String[]{prefix, grade};
             }
             if (commodity.toLowerCase().startsWith(prefix.toLowerCase() + " ")) {
-                String extractedGrade = commodity.substring(prefix.length()).trim();
+                String remainder = commodity.substring(prefix.length()).trim();
+                String firstToken = remainder.split("\\s+")[0];
+                String extractedGrade = looksLikeGrade(firstToken) ? firstToken : null;
                 return new String[]{prefix, grade != null ? grade : extractedGrade};
             }
         }
         return new String[]{commodity, grade};
+    }
+
+    private boolean looksLikeGrade(String token) {
+        return token != null && token.length() < 10 && token.matches("[A-Za-z0-9]+");
+    }
+
+    private static final Pattern NUMERIC_PATTERN = Pattern.compile("(\\d+(?:\\.\\d+)?)");
+
+    private Double parseQuantitySafely(Object raw, String messageId) {
+        if (raw == null) return null;
+        if (raw instanceof Integer i) return i.doubleValue();
+        if (raw instanceof Double d) return d;
+
+        String text = raw.toString().trim();
+        if (text.isEmpty()) return null;
+
+        try {
+            return Double.parseDouble(text);
+        } catch (NumberFormatException e) {
+            Matcher matcher = NUMERIC_PATTERN.matcher(text);
+            if (matcher.find()) {
+                String extracted = matcher.group(1);
+                log.warn("Quantity value '{}' contained non-numeric chars, extracted '{}' for messageId={}",
+                        text, extracted, messageId);
+                try {
+                    return Double.parseDouble(extracted);
+                } catch (NumberFormatException ex) {
+                    return null;
+                }
+            }
+            return null;
+        }
     }
 
     private String safeString(Map<String, Object> map, String key) {
