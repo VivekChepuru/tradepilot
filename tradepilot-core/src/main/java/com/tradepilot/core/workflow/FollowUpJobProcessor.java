@@ -46,6 +46,7 @@ public class FollowUpJobProcessor {
         try {
             Map<String, String> context = parseContext(job.getContextPayload());
             String toNumber = context.getOrDefault("toNumber", "");
+            log.debug("Processing job id={} template={} context={}", job.getId(), job.getMessageTemplate(), context);
             String message  = messageBuilder.buildMessage(job.getMessageTemplate(), context);
 
             SendResult result = whatsAppSenderService.send(toNumber, message);
@@ -84,7 +85,7 @@ public class FollowUpJobProcessor {
         }
 
         Map<String, String> context = new HashMap<>(raw);
-        context.putIfAbsent("name",  raw.getOrDefault("toNumber", ""));
+        context.putIfAbsent("name",  raw.getOrDefault("displayName", raw.getOrDefault("toNumber", "")));
         context.putIfAbsent("price", raw.getOrDefault("quotedPrice", ""));
         context.putIfAbsent("ref",   raw.getOrDefault("orderReference", ""));
         return context;

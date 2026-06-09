@@ -82,8 +82,10 @@ public class FollowUpSchedulerService {
         Map<String, String> payload = Map.of(
                 "orderReference", order.getOrderReference(),
                 "toNumber",       contact.getWhatsappNumber(),
-                "commodity",      order.getCommodity() != null ? order.getCommodity() : "",
-                "grade",          order.getGrade()     != null ? order.getGrade()     : ""
+                "displayName",    contact.getDisplayName() != null ? contact.getDisplayName() : contact.getWhatsappNumber(),
+                "commodity",      order.getCommodity()   != null ? order.getCommodity()   : "",
+                "grade",          order.getGrade()       != null ? order.getGrade()       : "",
+                "quotedPrice",    order.getQuotedPrice() != null ? order.getQuotedPrice().toPlainString() : ""
         );
         try {
             return objectMapper.writeValueAsString(payload);
