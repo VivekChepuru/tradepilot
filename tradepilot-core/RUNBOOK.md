@@ -200,3 +200,56 @@ Any non-terminal status → CANCELLED
 Auto-created when: price quote sent with routingDecision=PRICE_QUOTED
 Check orders: SELECT * FROM orders ORDER BY created_at DESC;
 Check contacts: SELECT * FROM trade_contacts;
+
+## 13. Follow-Up Scheduler
+
+Jobs are created automatically when a new order reaches QUOTED status.
+
+**Schedule:**
+| Template | Fires at | Message |
+|---|---|---|
+| INQUIRY_FOLLOWUP_1 | T+90 minutes | Soft check-in with price |
+| INQUIRY_FOLLOWUP_2 | T+4 hours | Follow-up nudge |
+| INQUIRY_FOLLOWUP_3 | T+24 hours | Final follow-up |
+| PAYMENT_REMINDER_DUE | Due date | Polite payment reminder |
+| PAYMENT_REMINDER_3D | +3 days | Gentle reminder |
+| PAYMENT_REMINDER_7D | +7 days | Firm reminder |
+| PAYMENT_REMINDER_15D | +15 days | Urgent reminder |
+
+**Processor:** runs every 60 seconds via @Scheduled
+**To test immediately:**
+```sql
+UPDATE follow_up_jobs 
+SET scheduled_at = NOW() - INTERVAL '5 minutes'
+WHERE id = {job_id};
+```
+
+**Check job status:**
+```sql
+SELECT id, job_type, message_template, scheduled_at, 
+       status, executed_at, attempt_count
+FROM follow_up_jobs
+ORDER BY scheduled_at ASC;
+```
+
+**Failure handling:** attempt_count increments on each failure.
+After 3 failed attempts status moves to FAILED automatically.
+
+---
+
+## 14. Build Progress (Updated)
+
+- [x] Week 1 — Project restructure, domain naming, package skeleton
+- [x] Week 2 — Kafka setup, Flyway migrations, WhatsApp webhook receiver
+- [x] Week 3 — Python FastAPI AI service scaffold, Kafka consumer/producer
+- [x] Week 4 — Real AI extraction and intent classification (Ollama + Phi-3 Mini)
+- [x] Week 5 — Price engine, quote calculation, outbound pipeline
+- [x] Week 6 — Decision routing engine, WhatsApp sender (simulation mode)
+- [x] Week 7 — Order state machine, TradeContact management
+- [x] Week 8 — Follow-up scheduler, payment reminders, Kafka-driven jobs
+- [ ] Week 9 — Next.js operator dashboard (inbox, pipeline, approvals)
+- [ ] Week 10 — AWS deployment, live pilot onboarding
+- [ ] Week 11 — pgvector customer history RAG
+- [ ] Week 12 — Negotiation intelligence, weekly digest
+- [ ] Week 13 — Multi-user / team support
+- [ ] Week 14 — First paying customer

@@ -148,14 +148,14 @@ pip install -r requirements.txt
 - [x] Pydantic models for InboundMessageEvent and AiProcessingResult
 - [x] Health endpoint
 - [x] Ollama integration with Phi-3 Mini
-- [x] Commodity entity extraction
+- [x] Commodity entity extraction with normalization
 - [x] Intent classification (8 classes)
 - [x] Confidence scoring and routing logic
 - [x] json-repair fallback for malformed model output
-- [ ] Price engine integration (Week 5)
-- [ ] Response generation (Week 5)
-- [ ] Negotiation intelligence (Week 11)
-
+- [x] Safe quantity parsing (handles "20 tons" → 20.0)
+- [ ] Price engine integration (complete — handled in Spring Boot)
+- [ ] Response generation (Week 12)
+- [ ] Negotiation intelligence (Week 12)
 ---
 
 ## 9. Local AI Model Setup
@@ -182,3 +182,4 @@ Should return phi3:mini in the models list.
 Ollama must be running before starting the AI service.
 It starts automatically on Windows login once installed.
 Check system tray for the llama icon to confirm it's running.
+
