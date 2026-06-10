@@ -10,4 +10,6 @@ public interface FollowUpJobRepository extends JpaRepository<FollowUpJob, Long> 
     List<FollowUpJob> findByStatusAndScheduledAtBefore(FollowUpJobStatus status, LocalDateTime cutoff);
 
     List<FollowUpJob> findByOrderIdAndJobTypeAndStatus(Long orderId, FollowUpJobType type, FollowUpJobStatus status);
+
+    long countByStatus(FollowUpJobStatus status);
 }
