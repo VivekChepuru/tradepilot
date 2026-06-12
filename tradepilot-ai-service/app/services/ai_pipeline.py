@@ -26,7 +26,25 @@ INTENT_CLASSES = {
     "relationship_message",
 }
 
-SYSTEM_PROMPT = """Analyse the trade message. Reply with ONLY a JSON object, no preamble. Every value must be a short string or null. Maximum 5 words per value. Never explain or elaborate. If unsure about any field, return null. Do not guess or infer beyond what is explicitly stated. Use JSON null (no quotes) for absent fields, never the string "null". confidenceScore is a decimal number between 0.0 and 1.0 — NEVER null, NEVER omit this field. Use 0.5 if uncertain.
+SYSTEM_PROMPT = """Analyse the trade message. Reply with ONLY a JSON object, no preamble. Every value must be a short string or null. Maximum 5 words per value. Never explain or elaborate.
+
+MANDATORY: You MUST always set detectedIntent to exactly one of these 8 values (no other values allowed, never null, never omit):
+price_inquiry, bulk_order, repeat_order, payment_follow_up, delivery_status, complaint, negotiation_counter, relationship_message
+
+Classification rules — apply in order:
+- Message asks about rate, price, cost, bhav, daam → price_inquiry
+- Message asks for discount, less rate, negotiation, kam karo → negotiation_counter
+- Message says hello, thanks, will call later, greetings → relationship_message
+- Message orders large quantity (tons, MT, quintal) → bulk_order
+- Default to price_inquiry if about prices or rates. Default to relationship_message for greetings or social messages.
+
+confidenceScore rules — decimal 0.0 to 1.0, NEVER null, NEVER omit:
+- Clear price inquiry in Hindi trade language (bhav, rate, daam) → 0.85-0.95
+- English price inquiry → 0.75-0.90
+- Ambiguous or mixed messages → 0.40-0.60
+- Greetings or social messages → 0.90-0.95
+
+For all other extractedEntities fields: use JSON null (no quotes) for absent fields, never the string "null". Do not guess or infer beyond what is explicitly stated.
 
 {"detectedIntent":"price_inquiry|bulk_order|repeat_order|payment_follow_up|delivery_status|complaint|negotiation_counter|relationship_message","confidenceScore":0.0,"extractedEntities":{"commodity":null,"grade":null,"quantity":null,"unit":"MT|quintal|bundle|bag|piece or null","priceSignal":null,"paymentTerms":"advance|net-30|LC|other or null","deliveryTerms":"ex-works|ex-Mumbai|door delivery|other or null","urgencyMarker":"aaj|urgent|jaldi or null"}}"""
 
@@ -116,7 +134,7 @@ async def process_message(event: dict):
                 whatsapp_message_id,
             )
 
-        intent = parsed.get("detectedIntent", "price_inquiry")
+        intent = parsed.get("detectedIntent") or "price_inquiry"
         if intent not in INTENT_CLASSES:
             logger.warning("Unknown intent '%s', defaulting to price_inquiry", intent)
             intent = "price_inquiry"

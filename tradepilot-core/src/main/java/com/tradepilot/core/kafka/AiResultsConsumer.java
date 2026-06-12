@@ -17,6 +17,7 @@ import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -32,6 +33,16 @@ public class AiResultsConsumer {
     private static final List<String> KNOWN_COMMODITY_PREFIXES = List.of(
             "MS Angle", "MS Pipe", "MS Flat", "MS Round",
             "TMT", "HRC", "DAP", "Angle", "Channel"
+    );
+
+    // AI sometimes returns commodity variants that need mapping to a canonical name
+    private static final Map<String, String> COMMODITY_ALIASES = Map.of(
+            "hrc coil", "HRC"
+    );
+
+    // Explicit grade codes; checked first to preserve the full designation (e.g. Fe500D not Fe50)
+    private static final Set<String> KNOWN_GRADES = Set.of(
+            "Fe415", "Fe415D", "Fe500", "Fe500D", "Fe550", "Fe550D", "Fe600"
     );
 
     private final PriceCalculationService priceCalculationService;
@@ -119,6 +130,12 @@ public class AiResultsConsumer {
 
     private String[] normalizeCommodityGrade(String commodity, String grade) {
         if (commodity == null) return new String[]{null, grade};
+
+        String canonical = COMMODITY_ALIASES.get(commodity.toLowerCase());
+        if (canonical != null) {
+            return new String[]{canonical, grade};
+        }
+
         for (String prefix : KNOWN_COMMODITY_PREFIXES) {
             if (commodity.equalsIgnoreCase(prefix)) {
                 return new String[]{prefix, grade};
@@ -134,7 +151,10 @@ public class AiResultsConsumer {
     }
 
     private boolean looksLikeGrade(String token) {
-        return token != null && token.length() < 10 && token.matches("[A-Za-z0-9]+");
+        if (token == null) return false;
+        if (KNOWN_GRADES.contains(token)) return true;
+        // fallback: must contain at least one digit so descriptors like "coil" are rejected
+        return token.length() < 10 && token.matches("[A-Za-z0-9]*\\d[A-Za-z0-9]*");
     }
 
     private static final Pattern NUMERIC_PATTERN = Pattern.compile("(\\d+(?:\\.\\d+)?)");

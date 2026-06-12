@@ -34,7 +34,10 @@ export default function OrdersPage() {
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       return res.json();
     })
-    .then(data => setStats(data))
+    .then(data => {
+      setOrders(data);
+      setLoading(false);
+    })
     .catch(err => console.error('Stats fetch failed:', err));
 }, []);
 
