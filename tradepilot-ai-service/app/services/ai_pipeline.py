@@ -30,6 +30,7 @@ SYSTEM_PROMPT = """Analyse the trade message. Reply with ONLY a JSON object, no 
 
 MANDATORY: You MUST always set detectedIntent to exactly one of these 8 values (no other values allowed, never null, never omit):
 price_inquiry, bulk_order, repeat_order, payment_follow_up, delivery_status, complaint, negotiation_counter, relationship_message
+MANDATORY: You MUST always set confidenceScore to a numeric value between 0.01 and 1.0. Never return 0, 0.0, null, or omit it.
 
 Classification rules — apply in order:
 - Message asks about rate, price, cost, bhav, daam → price_inquiry
@@ -141,6 +142,19 @@ async def process_message(event: dict):
 
         confidence = float(parsed.get("confidenceScore") or 0.0)
         confidence = max(0.0, min(1.0, confidence))
+        if confidence == 0.0:
+            _intent_defaults = {
+                "price_inquiry": 0.80,
+                "relationship_message": 0.90,
+                "negotiation_counter": 0.85,
+            }
+            confidence = _intent_defaults.get(intent, 0.75)
+            logger.warning(
+                "confidenceScore was 0.0 for message %s (intent=%s), using default %.2f",
+                whatsapp_message_id,
+                intent,
+                confidence,
+            )
 
         entities = parsed.get("extractedEntities", {})
 
