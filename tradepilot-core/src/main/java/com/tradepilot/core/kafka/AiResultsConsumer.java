@@ -27,7 +27,7 @@ import java.util.regex.Pattern;
 public class AiResultsConsumer {
 
     private static final String PRICE_INQUIRY = "price_inquiry";
-    private static final double MIN_CONFIDENCE = 0.50;
+    private static final double MIN_CONFIDENCE = 0.10;
 
     // Multi-word prefixes must come before their single-word components
     private static final List<String> KNOWN_COMMODITY_PREFIXES = List.of(
