@@ -141,6 +141,13 @@ async def process_message(event: dict):
                 whatsapp_message_id,
             )
 
+        if isinstance(parsed, list):
+            parsed = parsed[0] if parsed and isinstance(parsed[0], dict) else {}
+            logger.warning(
+                "Ollama returned a JSON list instead of object for message %s, extracted first element",
+                whatsapp_message_id,
+            )
+
         intent = parsed.get("detectedIntent") or "price_inquiry"
         if intent not in INTENT_CLASSES:
             logger.warning("Unknown intent '%s', defaulting to price_inquiry", intent)
