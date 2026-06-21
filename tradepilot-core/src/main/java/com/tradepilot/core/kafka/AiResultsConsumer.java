@@ -131,6 +131,12 @@ public class AiResultsConsumer {
     private String[] normalizeCommodityGrade(String commodity, String grade) {
         if (commodity == null) return new String[]{null, grade};
 
+        // Safety net: if the model misclassified a grade code as commodity, correct it
+        if (commodity != null && KNOWN_GRADES.contains(commodity)) {
+            log.warn("Grade code '{}' was misclassified as commodity — correcting to TMT", commodity);
+            return new String[]{"TMT", grade != null ? grade : commodity};
+        }
+
         String canonical = COMMODITY_ALIASES.get(commodity.toLowerCase());
         if (canonical != null) {
             return new String[]{canonical, grade};
