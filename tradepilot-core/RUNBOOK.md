@@ -219,14 +219,14 @@ Jobs are created automatically when a new order reaches QUOTED status.
 **Processor:** runs every 60 seconds via @Scheduled
 **To test immediately:**
 ```sql
-UPDATE follow_up_jobs 
+UPDATE follow_up_jobs
 SET scheduled_at = NOW() - INTERVAL '5 minutes'
 WHERE id = {job_id};
 ```
 
 **Check job status:**
 ```sql
-SELECT id, job_type, message_template, scheduled_at, 
+SELECT id, job_type, message_template, scheduled_at,
        status, executed_at, attempt_count
 FROM follow_up_jobs
 ORDER BY scheduled_at ASC;
@@ -237,7 +237,67 @@ After 3 failed attempts status moves to FAILED automatically.
 
 ---
 
-## 14. Build Progress (Updated)
+## 14. Negotiation Engine
+
+Activated when AI classifies intent as negotiation_counter.
+Configured in application.yml under tradepilot.negotiation.
+
+**Thresholds:**
+| Discount Requested | Action | Routing Decision |
+|---|---|---|
+| <= 2% | Auto-approve, apply discount, send price | PRICE_QUOTED |
+| 3–5% | Queue for operator review, no reply sent | PENDING_APPROVAL |
+| > 5% | Reject politely, escalate to human | ESCALATED |
+
+**Config (application.yml):**
+```yaml
+tradepilot:
+  negotiation:
+    max-auto-discount-percent: 2.0
+    max-escalate-discount-percent: 5.0
+```
+
+**Key files:**
+- `NegotiationProperties.java` — binds config values
+- `NegotiationService.java` — 3-tier routing logic
+- `AiResultsConsumer.java` — routes negotiation_counter here before price engine
+
+**AI extraction:** discountPercent is extracted from the message by Phi-3 Mini
+and placed in extractedEntities. NegotiationService reads it via safeDouble helper.
+
+**Test scenarios verified (2026-06-23):**
+- 2% discount → PRICE_QUOTED, ₹71056.15/MT (from base ₹72506.28)
+- 4% discount → PENDING_APPROVAL, queued for operator
+- 10% discount → ESCALATED, polite rejection reply sent
+
+---
+
+## 15. Pipeline Test Results (All Scenarios Verified 2026-06-21)
+
+All 9 core pipeline scenarios passing. English-only testing scope
+(Hindi/regional deferred until Meta credentials activated and better model available).
+
+| # | Scenario | Status |
+|---|---|---|
+| 1 | TMT Fe500D Hindi price inquiry | ✅ PASS |
+| 2 | MS Angle multi-word prefix | ✅ PASS |
+| 3 | Unknown commodity (Copper wire) escalation | ✅ PASS |
+| 4 | Order confirmation (bulk_order intent) | ✅ PASS |
+| 5 | Negotiation / discount request routing | ✅ PASS |
+| 6 | Generic greeting (relationship_message) | ✅ PASS |
+| 7 | New WhatsApp contact auto-creation | ✅ PASS |
+| 8 | Duplicate contact prevention | ✅ PASS |
+| 9 | Malformed payload graceful handling | ✅ PASS |
+
+**Known model quirks (Phi-3 Mini):**
+- confidence often returns 0.0 → Python fallback assigns intent-based default
+- unit field sometimes returns prompt template text instead of extracted value
+- Ollama occasionally returns JSON list instead of object → isinstance guard handles it
+- MIN_CONFIDENCE threshold lowered to 0.10 in AiResultsConsumer.java
+
+---
+
+## 16. Build Progress (Updated 2026-06-23)
 
 - [x] Week 1 — Project restructure, domain naming, package skeleton
 - [x] Week 2 — Kafka setup, Flyway migrations, WhatsApp webhook receiver
@@ -246,7 +306,8 @@ After 3 failed attempts status moves to FAILED automatically.
 - [x] Week 5 — Price engine, quote calculation, outbound pipeline
 - [x] Week 6 — Decision routing engine, WhatsApp sender (simulation mode)
 - [x] Week 7 — Order state machine, TradeContact management
-- [x] Week 8 — Follow-up scheduler, payment reminders, Kafka-driven jobs
+- [x] Week 8 — Follow-up scheduler, Kafka-driven jobs, negotiation engine (3-tier)
+- [ ] Week 8 remaining — Payment reminders, invoice generation
 - [ ] Week 9 — Next.js operator dashboard (inbox, pipeline, approvals)
 - [ ] Week 10 — AWS deployment, live pilot onboarding
 - [ ] Week 11 — pgvector customer history RAG

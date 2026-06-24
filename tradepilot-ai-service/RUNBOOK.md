@@ -140,7 +140,7 @@ pip install -r requirements.txt
 
 ---
 
-## 8. Build Progress
+## 8. Build Progress (Updated 2026-06-23)
 
 - [x] FastAPI app scaffold with lifespan management
 - [x] Kafka consumer — reads from tradepilot.messages.inbound
@@ -149,13 +149,20 @@ pip install -r requirements.txt
 - [x] Health endpoint
 - [x] Ollama integration with Phi-3 Mini
 - [x] Commodity entity extraction with normalization
-- [x] Intent classification (8 classes)
+- [x] Intent classification (8 classes: price_inquiry, bulk_order, repeat_order, payment_follow_up, delivery_status, complaint, negotiation_counter, relationship_message)
 - [x] Confidence scoring and routing logic
 - [x] json-repair fallback for malformed model output
 - [x] Safe quantity parsing (handles "20 tons" → 20.0)
+- [x] Confidence fallback — 0.0 score replaced with intent-based defaults (price_inquiry=0.80, relationship_message=0.90, negotiation_counter=0.85, others=0.75)
+- [x] isinstance guard — Ollama JSON list response handled gracefully
+- [x] discountPercent extraction for negotiation_counter messages
+- [x] Grade/commodity separation rules — Fe+digits always goes in grade field
+- [x] extractedEntities extraction rules added to system prompt
+- [x] English-only testing verified (Hindi/regional deferred — Phi-3 Mini unreliable)
 - [ ] Price engine integration (complete — handled in Spring Boot)
 - [ ] Response generation (Week 12)
-- [ ] Negotiation intelligence (Week 12)
+- [ ] Negotiation intelligence with memory (Week 12)
+- [ ] Hindi/regional language support (pending better model or Meta API activation)
 ---
 
 ## 9. Local AI Model Setup
