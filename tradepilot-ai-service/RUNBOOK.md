@@ -163,6 +163,7 @@ pip install -r requirements.txt
 - [ ] Response generation (Week 12)
 - [ ] Negotiation intelligence with memory (Week 12)
 - [ ] Hindi/regional language support (pending better model or Meta API activation)
+- [ ] Invoice generation — text-based first, PDF via WhatsApp deferred to post-Meta setup
 ---
 
 ## 9. Local AI Model Setup

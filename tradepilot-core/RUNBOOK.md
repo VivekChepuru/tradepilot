@@ -307,10 +307,68 @@ All 9 core pipeline scenarios passing. English-only testing scope
 - [x] Week 6 — Decision routing engine, WhatsApp sender (simulation mode)
 - [x] Week 7 — Order state machine, TradeContact management
 - [x] Week 8 — Follow-up scheduler, Kafka-driven jobs, negotiation engine (3-tier)
-- [ ] Week 8 remaining — Payment reminders, invoice generation
+- [x] Week 8 remaining — Payment reminders verified end-to-end
+- [ ] Week 8 final — Invoice generation (text-based, PDF deferred to post-Meta setup)
 - [ ] Week 9 — Next.js operator dashboard (inbox, pipeline, approvals)
 - [ ] Week 10 — AWS deployment, live pilot onboarding
 - [ ] Week 11 — pgvector customer history RAG
 - [ ] Week 12 — Negotiation intelligence, weekly digest
 - [ ] Week 13 — Multi-user / team support
 - [ ] Week 14 — First paying customer
+
+## 17. Payment Reminders
+
+Triggered automatically when an order transitions to CONFIRMED status.
+Scheduled via FollowUpSchedulerService.schedulePaymentReminders().
+
+**4 reminder tiers:**
+| Template | Fires at | Tone |
+|---|---|---|
+| PAYMENT_REMINDER_DUE | Order confirmed (T+0) | Polite — payment due today |
+| PAYMENT_REMINDER_3D | T+3 days | Gentle — 3 days overdue |
+| PAYMENT_REMINDER_7D | T+7 days | Important — 7 days overdue |
+| PAYMENT_REMINDER_15D | T+15 days | Urgent — 15 days overdue |
+
+**Trigger flow:**
+1. OrderService.transitionStatus() called with newStatus=CONFIRMED
+2. cancelPendingFollowUps(orderId) — cancels remaining INQUIRY_FOLLOWUP jobs
+3. schedulePaymentReminders(order, contact) — inserts 4 PAYMENT_REMINDER jobs
+4. FollowUpJobProcessor picks them up at scheduled time (runs every 60s)
+5. FollowUpMessageBuilder resolves template with context (name, ref, commodity, price)
+6. WhatsAppSenderService sends the message (simulation mode until Meta activated)
+
+**Context payload fields used by templates:**
+- {name} — contact displayName or whatsappNumber fallback
+- {ref} — orderReference (e.g. TP-1718900000000)
+- {commodity}, {grade}, {price} — from order at time of scheduling
+
+**To test immediately (force a job to fire):**
+```sql
+UPDATE follow_up_jobs
+SET scheduled_at = NOW() - INTERVAL '5 minutes'
+WHERE message_template = 'PAYMENT_REMINDER_DUE'
+AND status = 'PENDING'
+LIMIT 1;
+```
+
+**To manually insert a test payment reminder job:**
+```sql
+INSERT INTO follow_up_jobs
+(job_type, order_id, trade_contact_id, scheduled_at, status, attempt_count, message_template, context_payload, created_at)
+SELECT
+    'PAYMENT_REMINDER', o.id, o.trade_contact_id,
+    NOW() - INTERVAL '5 minutes', 'PENDING', 0, 'PAYMENT_REMINDER_DUE',
+    json_build_object(
+        'orderReference', o.order_reference,
+        'toNumber', tc.whatsapp_number,
+        'displayName', tc.display_name,
+        'commodity', o.commodity,
+        'grade', COALESCE(o.grade, ''),
+        'quotedPrice', o.quoted_price::text
+    )::jsonb, NOW()
+FROM orders o
+JOIN trade_contacts tc ON tc.id = o.trade_contact_id
+WHERE o.status = 'QUOTED' LIMIT 1;
+```
+
+**Verified:** 2026-06-23 — PAYMENT_REMINDER_DUE fired and delivered via simulated send.
