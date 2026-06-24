@@ -23,7 +23,7 @@ spring:
     enabled: true
     locations: classpath:db/migration
     baseline-on-migrate: true
-    baseline-version: 0
+    baseline-version: 01
 
   kafka:
     admin:
@@ -56,6 +56,9 @@ tradepilot:
     api-base-url: https://graph.facebook.com
     phone-number-id: FILL_WHEN_META_UNBLOCKS
     access-token: FILL_WHEN_META_UNBLOCKS
+  negotiation:
+    max-auto-discount-percent: 2.0
+    max-escalate-discount-percent: 5.0
 
 logging:
   level:

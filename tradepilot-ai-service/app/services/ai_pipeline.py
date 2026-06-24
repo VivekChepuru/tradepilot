@@ -50,10 +50,11 @@ extractedEntities extraction rules — MANDATORY:
 - "grade" = specification or quality code. Examples: Fe415, Fe500, Fe500D, Fe550, Fe600. Grade codes always start with Fe followed by numbers.
 - If message says "Fe500D ka bhav" → commodity is "TMT", grade is "Fe500D".
 - If you see Fe followed by numbers anywhere in the message, it always goes in "grade", never in "commodity".
+- "discountPercent" = numeric percentage discount requested, ONLY for negotiation_counter messages. Examples: "5% discount chahiye" → 5.0, "give me 3 percent off" → 3.0, "can you reduce price a little" → null (no specific number). ALWAYS include discountPercent in extractedEntities — set to null if no specific percentage is mentioned, never omit it.
 
 For all other extractedEntities fields: use JSON null (no quotes) for absent fields, never the string "null". Do not guess or infer beyond what is explicitly stated.
 
-{"detectedIntent":"price_inquiry|bulk_order|repeat_order|payment_follow_up|delivery_status|complaint|negotiation_counter|relationship_message","confidenceScore":0.0,"extractedEntities":{"commodity":null,"grade":null,"quantity":null,"unit":"MT|quintal|bundle|bag|piece or null","priceSignal":null,"paymentTerms":"advance|net-30|LC|other or null","deliveryTerms":"ex-works|ex-Mumbai|door delivery|other or null","urgencyMarker":"aaj|urgent|jaldi or null"}}"""
+{"detectedIntent":"price_inquiry|bulk_order|repeat_order|payment_follow_up|delivery_status|complaint|negotiation_counter|relationship_message","confidenceScore":0.0,"extractedEntities":{"commodity":null,"grade":null,"quantity":null,"unit":"MT|quintal|bundle|bag|piece or null","priceSignal":null,"paymentTerms":"advance|net-30|LC|other or null","deliveryTerms":"ex-works|ex-Mumbai|door delivery|other or null","urgencyMarker":"aaj|urgent|jaldi or null","discountPercent":null}}"""
 
 
 def _determine_routing(confidence: float) -> str:

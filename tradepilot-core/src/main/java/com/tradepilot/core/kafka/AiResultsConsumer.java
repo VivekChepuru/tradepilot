@@ -1,6 +1,7 @@
 package com.tradepilot.core.kafka;
 
 import com.tradepilot.core.exception.PriceRuleNotFoundException;
+import com.tradepilot.core.trade.negotiation.NegotiationService;
 import com.tradepilot.core.trade.order.OrderService;
 import com.tradepilot.core.trade.pricing.PriceCalculationService;
 import com.tradepilot.core.trade.pricing.PriceQuote;
@@ -48,6 +49,7 @@ public class AiResultsConsumer {
     private final PriceCalculationService priceCalculationService;
     private final KafkaTemplate<String, Object> kafkaTemplate;
     private final OrderService orderService;
+    private final NegotiationService negotiationService;
 
     @Value("${tradepilot.kafka.topics.messages-outbound}")
     private String outboundTopic;
@@ -58,6 +60,12 @@ public class AiResultsConsumer {
             containerFactory = "aiResultListenerContainerFactory"
     )
     public void consume(AiResultEvent event) {
+        if ("negotiation_counter".equals(event.getDetectedIntent())) {
+            log.info("Routing negotiation_counter to NegotiationService for messageId={}", event.getMessageId());
+            negotiationService.processNegotiation(event);
+            return;
+        }
+
         if (!PRICE_INQUIRY.equals(event.getDetectedIntent())) {
             log.info("Skipping intent={} for messageId={}", event.getDetectedIntent(), event.getMessageId());
             return;
