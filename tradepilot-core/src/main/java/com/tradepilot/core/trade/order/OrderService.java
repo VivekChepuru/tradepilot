@@ -85,6 +85,18 @@ public class OrderService {
         return saved;
     }
 
+    /**
+     * Transitions an order through the state machine defined in {@code ALLOWED_TRANSITIONS}.
+     *
+     * <p>Valid paths: INQUIRY → QUOTED → NEGOTIATING → CONFIRMED → DISPATCHED → DELIVERED.
+     * CANCELLED is reachable from any non-terminal state. DELIVERED and CANCELLED are terminal.
+     *
+     * <p>Side effects on transition to {@link OrderStatus#CONFIRMED}:
+     * <ol>
+     *   <li>Cancels any pending INQUIRY_FOLLOWUP jobs (customer has confirmed, no longer needed).</li>
+     *   <li>Schedules a series of PAYMENT_REMINDER jobs for the associated TradeContact.</li>
+     * </ol>
+     */
     @Transactional
     public Order transitionStatus(Long orderId, OrderStatus newStatus) {
         Order order = orderRepository.findById(orderId)
@@ -97,12 +109,31 @@ public class OrderService {
         }
 
         order.setStatus(newStatus);
-        return orderRepository.save(order);
+        Order saved = orderRepository.save(order);
+
+        if (newStatus == OrderStatus.CONFIRMED) {
+            followUpSchedulerService.cancelPendingFollowUps(orderId);
+            log.info("Cancelled pending inquiry follow-ups on CONFIRMED for orderId={}", orderId);
+            TradeContact contact = getTradeContactForOrder(saved);
+            followUpSchedulerService.schedulePaymentReminders(saved, contact);
+            log.info("Scheduled payment reminders on CONFIRMED for orderId={} contact={}", orderId, contact.getWhatsappNumber());
+        }
+
+        return saved;
     }
 
     public List<Order> getOpenOrdersForContact(String whatsappNumber) {
         TradeContact contact = tradeContactRepository.findByWhatsappNumber(whatsappNumber)
                 .orElseThrow(() -> new IllegalArgumentException("Contact not found: " + whatsappNumber));
         return orderRepository.findByTradeContactIdAndStatusIn(contact.getId(), OPEN_STATUSES);
+    }
+
+    private TradeContact getTradeContactForOrder(Order order) {
+        TradeContact contact = order.getTradeContact();
+        if (contact == null) {
+            throw new IllegalStateException(
+                    String.format("Order %d has no associated TradeContact", order.getId()));
+        }
+        return contact;
     }
 }
