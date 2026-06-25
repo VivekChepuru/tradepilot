@@ -307,7 +307,7 @@ All 9 core pipeline scenarios passing. English-only testing scope
 - [x] Week 6 — Decision routing engine, WhatsApp sender (simulation mode)
 - [x] Week 7 — Order state machine, TradeContact management
 - [x] Week 8 — Follow-up scheduler, Kafka-driven jobs, negotiation engine (3-tier)
-- [x] Week 8 remaining — Payment reminders verified end-to-end
+- [x] Week 8 final — Invoice generation verified end-to-end (text-based, PDF deferred to post-Meta setup)
 - [ ] Week 8 final — Invoice generation (text-based, PDF deferred to post-Meta setup)
 - [ ] Week 9 — Next.js operator dashboard (inbox, pipeline, approvals)
 - [ ] Week 10 — AWS deployment, live pilot onboarding
@@ -371,4 +371,53 @@ JOIN trade_contacts tc ON tc.id = o.trade_contact_id
 WHERE o.status = 'QUOTED' LIMIT 1;
 ```
 
-**Verified:** 2026-06-23 — PAYMENT_REMINDER_DUE fired and delivered via simulated send.
+## 18. Invoice Generation
+
+Triggered automatically on order status transitions based on payment terms.
+
+**Trigger rules:**
+| Payment Terms | Triggered On | Action |
+|---|---|---|
+| ADVANCE | CONFIRMED | Generate invoice + schedule payment reminders |
+| POST_DELIVERY | DELIVERED | Generate invoice + schedule payment reminders |
+
+**Invoice format (text-based — PDF deferred to post-Meta setup):**
+Sent via WhatsApp as a formatted text message containing invoice number,
+order reference, item details, GST breakdown, total, and RTGS bank details.
+
+**GST:** Fixed 18% (configurable via INVOICE_GST_RATE env var)
+**Due date:** 10 days POST_DELIVERY, 3 days ADVANCE (configurable via env vars)
+
+**Bank details config (application.yml — values from env vars):**
+```yaml
+tradepilot:
+  business:
+    bank:
+      account-name: ${BANK_ACCOUNT_NAME:TradePilot Business Account}
+      account-number: ${BANK_ACCOUNT_NUMBER:XXXXXXXXXXXX}
+      ifsc-code: ${BANK_IFSC_CODE:XXXX0000000}
+      bank-name: ${BANK_NAME:State Bank of India}
+      upi-id: ${BANK_UPI_ID:tradepilot@upi}
+```
+Never commit real bank details — always use environment variables.
+
+**Duplicate guard:** InvoiceService checks existsByOrderId before generating.
+A second CONFIRMED transition on the same order will log a warning and skip.
+
+**Key files:**
+- `Invoice.java` — JPA entity mapped to invoices table
+- `InvoiceRepository.java` — existsByOrderId, findByOrderId, findByStatus
+- `InvoiceService.java` — GST calculation, text formatting, Kafka publish
+- `BusinessProperties.java` — bank + invoice config binding
+- `OutboundMessageConsumer.java` — handles INVOICE_SENT routing decision
+
+**To verify invoice in DB:**
+```sql
+SELECT id, invoice_number, status, subtotal, gst_amount, total_amount, due_date
+FROM invoices
+ORDER BY created_at DESC;
+```
+
+**Verified:** 2026-06-24 — TP-INV-16 generated on CONFIRMED, published to
+tradepilot.messages.outbound with routingDecision=INVOICE_SENT, payment
+reminder fired 39 seconds after confirmation.

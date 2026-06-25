@@ -159,7 +159,7 @@ pip install -r requirements.txt
 - [x] Grade/commodity separation rules — Fe+digits always goes in grade field
 - [x] extractedEntities extraction rules added to system prompt
 - [x] English-only testing verified (Hindi/regional deferred — Phi-3 Mini unreliable)
-- [ ] Price engine integration (complete — handled in Spring Boot)
+- [x] Invoice generation verified end-to-end (text-based, PDF deferred to post-Meta setup)
 - [ ] Response generation (Week 12)
 - [ ] Negotiation intelligence with memory (Week 12)
 - [ ] Hindi/regional language support (pending better model or Meta API activation)
