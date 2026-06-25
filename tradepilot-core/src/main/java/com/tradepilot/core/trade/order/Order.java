@@ -1,5 +1,6 @@
 package com.tradepilot.core.trade.order;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.tradepilot.core.trade.customer.TradeContact;
 import jakarta.persistence.*;
 import lombok.*;
@@ -9,6 +10,7 @@ import org.hibernate.annotations.UpdateTimestamp;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 @Entity
 @Table(name = "orders")
 @Getter

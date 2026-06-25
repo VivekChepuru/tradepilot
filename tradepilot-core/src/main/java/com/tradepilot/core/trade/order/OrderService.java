@@ -2,6 +2,7 @@ package com.tradepilot.core.trade.order;
 
 import com.tradepilot.core.trade.customer.TradeContact;
 import com.tradepilot.core.trade.customer.TradeContactRepository;
+import com.tradepilot.core.trade.invoice.InvoiceService;
 import com.tradepilot.core.webhook.dto.OutboundMessageEvent;
 import com.tradepilot.core.workflow.FollowUpSchedulerService;
 import lombok.RequiredArgsConstructor;
@@ -39,6 +40,7 @@ public class OrderService {
     private final OrderRepository orderRepository;
     private final TradeContactRepository tradeContactRepository;
     private final FollowUpSchedulerService followUpSchedulerService;
+    private final InvoiceService invoiceService;
 
     @Transactional
     public Order createOrUpdateFromQuote(OutboundMessageEvent event) {
@@ -91,9 +93,16 @@ public class OrderService {
      * <p>Valid paths: INQUIRY → QUOTED → NEGOTIATING → CONFIRMED → DISPATCHED → DELIVERED.
      * CANCELLED is reachable from any non-terminal state. DELIVERED and CANCELLED are terminal.
      *
-     * <p>Side effects on transition to {@link OrderStatus#CONFIRMED}:
+     * <p>Side effects on transition to {@link OrderStatus#CONFIRMED} (ADVANCE payment terms):
      * <ol>
      *   <li>Cancels any pending INQUIRY_FOLLOWUP jobs (customer has confirmed, no longer needed).</li>
+     *   <li>Generates and sends an invoice immediately via {@link InvoiceService}.</li>
+     *   <li>Schedules a series of PAYMENT_REMINDER jobs for the associated TradeContact.</li>
+     * </ol>
+     *
+     * <p>Side effects on transition to {@link OrderStatus#DELIVERED} (POST_DELIVERY payment terms):
+     * <ol>
+     *   <li>Generates and sends an invoice on delivery via {@link InvoiceService}.</li>
      *   <li>Schedules a series of PAYMENT_REMINDER jobs for the associated TradeContact.</li>
      * </ol>
      */
@@ -117,6 +126,19 @@ public class OrderService {
             TradeContact contact = getTradeContactForOrder(saved);
             followUpSchedulerService.schedulePaymentReminders(saved, contact);
             log.info("Scheduled payment reminders on CONFIRMED for orderId={} contact={}", orderId, contact.getWhatsappNumber());
+            invoiceService.generateAndSend(saved, contact);
+            log.info("Invoice generated for orderId={} on CONFIRMED transition", orderId);
+        }
+
+        if (newStatus == OrderStatus.DELIVERED) {
+            String paymentTerms = saved.getPaymentTerms() != null ? saved.getPaymentTerms() : "POST_DELIVERY";
+            if ("POST_DELIVERY".equals(paymentTerms)) {
+                TradeContact deliveryContact = getTradeContactForOrder(saved);
+                invoiceService.generateAndSend(saved, deliveryContact);
+                log.info("Invoice generated for orderId={} on DELIVERED transition (POST_DELIVERY terms)", orderId);
+                followUpSchedulerService.schedulePaymentReminders(saved, deliveryContact);
+                log.info("Payment reminders scheduled for orderId={} on DELIVERED transition", orderId);
+            }
         }
 
         return saved;

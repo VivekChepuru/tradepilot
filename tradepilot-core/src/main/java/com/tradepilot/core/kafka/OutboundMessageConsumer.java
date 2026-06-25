@@ -37,6 +37,9 @@ public class OutboundMessageConsumer {
             case "ESCALATED" ->
                 log.info("Message escalated to human — messageId: {} reason: no price rule or low confidence",
                         event.getWhatsappMessageId());
+            case "INVOICE_SENT" ->
+                log.info("Invoice sent to customer — messageId: {} to: {}",
+                        event.getWhatsappMessageId(), event.getFromNumber());
             default ->
                 log.warn("Unknown routing decision: {} for messageId: {}",
                         event.getRoutingDecision(), event.getWhatsappMessageId());

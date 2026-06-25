@@ -6,7 +6,9 @@ import com.tradepilot.core.trade.order.OrderService;
 import com.tradepilot.core.trade.order.OrderStatus;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
 
@@ -32,7 +34,15 @@ public class OrderController {
     @PatchMapping("/{id}/status")
     public Order updateStatus(@PathVariable Long id, @RequestBody StatusUpdateRequest request) {
         log.info("Updating order id={} to status={}", id, request.status());
-        return orderService.transitionStatus(id, request.status());
+        try {
+            return orderService.transitionStatus(id, request.status());
+        } catch (IllegalStateException e) {
+            log.warn("Invalid status transition: orderId={} requestedStatus={} reason={}", id, request.status(), e.getMessage());
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, e.getMessage());
+        } catch (IllegalArgumentException e) {
+            log.warn("Order not found: orderId={}", id);
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, e.getMessage());
+        }
     }
 
     record StatusUpdateRequest(OrderStatus status) {}

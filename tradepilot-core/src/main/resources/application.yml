@@ -59,6 +59,17 @@ tradepilot:
   negotiation:
     max-auto-discount-percent: 2.0
     max-escalate-discount-percent: 5.0
+  business:
+    bank:
+      account-name: ${BANK_ACCOUNT_NAME:TradePilot Business Account}
+      account-number: ${BANK_ACCOUNT_NUMBER:XXXXXXXXXXXX}
+      ifsc-code: ${BANK_IFSC_CODE:XXXX0000000}
+      bank-name: ${BANK_NAME:State Bank of India}
+      upi-id: ${BANK_UPI_ID:tradepilot@upi}
+    invoice:
+      gst-rate: ${INVOICE_GST_RATE:18.0}
+      due-days-post-delivery: ${INVOICE_DUE_DAYS_POST_DELIVERY:10}
+      due-days-advance: ${INVOICE_DUE_DAYS_ADVANCE:3}
 
 logging:
   level:
