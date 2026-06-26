@@ -309,7 +309,8 @@ All 9 core pipeline scenarios passing. English-only testing scope
 - [x] Week 8 — Follow-up scheduler, Kafka-driven jobs, negotiation engine (3-tier)
 - [x] Week 8 final — Invoice generation verified end-to-end (text-based, PDF deferred to post-Meta setup)
 - [x] Week 8 final — Invoice generation (text-based, PDF deferred to post-Meta setup)
-- [x] Week 9 — Next.js operator dashboard (inbox, pipeline, approvals)
+- [x] Week 9 — Operator dashboard complete (Overview, Orders, Approvals, Follow-ups, Overdue, Inbox placeholder)
+- [x] Week 9 — Overdue payment flow + full operator dashboard implemented and verified
 - [ ] Week 10 — AWS deployment, live pilot onboarding
 - [ ] Week 11 — pgvector customer history RAG
 - [ ] Week 12 — Negotiation intelligence, weekly digest
@@ -483,4 +484,55 @@ ORDER BY flagged_at DESC;
 
 **Verified:** 2026-06-25 — order 18 flagged OVERDUE, POLITE manual reminder
 delivered via simulated WhatsApp send.
-   
+
+---
+
+## 20. Operator Dashboard (Week 9)
+
+Next.js dashboard at http://localhost:3000/dashboard
+
+**Pages:**
+| Page | URL | Data Source | Status |
+|---|---|---|---|
+| Overview | /dashboard | GET /api/dashboard/stats | ✅ Live |
+| Orders | /dashboard/orders | GET /api/orders | ✅ Live |
+| Approvals | /dashboard/approvals | GET /api/approvals | ✅ Live |
+| Follow-ups | /dashboard/follow-ups | GET /api/follow-ups | ✅ Live |
+| Overdue | /dashboard/overdue | GET /api/payments/overdue | ✅ Live |
+| Inbox | /dashboard/inbox | — | ⏳ Week 10 |
+
+**New backend components added (Week 9):**
+- `PendingApproval.java` — DTO record for in-flight negotiation approvals
+- `PendingApprovalStore.java` — thread-safe ConcurrentHashMap in-memory store
+- `ApprovalController.java` — GET /api/approvals, POST approve, POST reject
+- `OutboundMessageConsumer.java` — stores PENDING_APPROVAL events in store
+- `CorsConfig.java` — fixed missing @Configuration, PATCH method added
+- `SecurityConfig.java` — added /api/payments/overdue/**, /api/approvals/** to permitAll
+
+**Important — PendingApprovalStore is in-memory:**
+Approvals are lost on Spring Boot restart. This is intentional for now.
+Week 11 will persist approvals to DB if needed.
+
+**To start the dashboard:**
+```bash
+cd tradepilot-dashboard
+npm run dev
+```
+Dashboard runs on http://localhost:3000
+
+**CORS config:**
+- Allowed origin: http://localhost:3000
+- Allowed methods: GET, POST, PUT, PATCH, DELETE, OPTIONS
+- Credentials: true
+- Config files: CorsConfig.java (MVC layer) + SecurityConfig.java (Security layer)
+
+**Approvals flow:**
+1. Buyer sends discount request (3–5%)
+2. NegotiationService routes to PENDING_APPROVAL
+3. OutboundMessageConsumer stores in PendingApprovalStore
+4. Dashboard /approvals page shows card with Approve & Send / Reject buttons
+5. Operator clicks → POST /api/approvals/{id}/approve or /reject
+6. WhatsApp message sent, approval removed from store
+
+**Verified:** 2026-06-25 — all 6 dashboard pages loading with real data.
+Approvals page tested with live 4% discount negotiation (MSG_017).

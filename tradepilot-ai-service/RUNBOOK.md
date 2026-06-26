@@ -164,6 +164,7 @@ pip install -r requirements.txt
 - [ ] Negotiation intelligence with memory (Week 12)
 - [ ] Hindi/regional language support (pending better model or Meta API activation)
 - [ ] Invoice generation — text-based first, PDF via WhatsApp deferred to post-Meta setup
+- [x] Week 9 — Operator dashboard live (Next.js, 6 pages, real data from Spring Boot APIs)
 ---
 
 ## 9. Local AI Model Setup
