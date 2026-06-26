@@ -308,8 +308,8 @@ All 9 core pipeline scenarios passing. English-only testing scope
 - [x] Week 7 — Order state machine, TradeContact management
 - [x] Week 8 — Follow-up scheduler, Kafka-driven jobs, negotiation engine (3-tier)
 - [x] Week 8 final — Invoice generation verified end-to-end (text-based, PDF deferred to post-Meta setup)
-- [ ] Week 8 final — Invoice generation (text-based, PDF deferred to post-Meta setup)
-- [ ] Week 9 — Next.js operator dashboard (inbox, pipeline, approvals)
+- [x] Week 8 final — Invoice generation (text-based, PDF deferred to post-Meta setup)
+- [x] Week 9 — Next.js operator dashboard (inbox, pipeline, approvals)
 - [ ] Week 10 — AWS deployment, live pilot onboarding
 - [ ] Week 11 — pgvector customer history RAG
 - [ ] Week 12 — Negotiation intelligence, weekly digest
@@ -421,3 +421,65 @@ ORDER BY created_at DESC;
 **Verified:** 2026-06-24 — TP-INV-16 generated on CONFIRMED, published to
 tradepilot.messages.outbound with routingDecision=INVOICE_SENT, payment
 reminder fired 39 seconds after confirmation.
+
+## 19. Overdue Payment Flow
+
+Runs daily at 9 AM via @Scheduled cron. Flags orders where payment is
+30+ days overdue and enables operator manual reminders with tone selection.
+
+**Flagging criteria:**
+| Condition | Logic |
+|---|---|
+| CONFIRMED + PENDING payment | updated_at < NOW() - 30 days |
+| QUOTED + PENDING payment | created_at < NOW() - 30 days |
+
+**On flagging:**
+- payment_status updated to OVERDUE
+- PaymentOverdueFlag record created with status=OPEN
+- Automated reminders stop
+- Flag appears on dashboard for operator action
+
+**Operator actions (via dashboard or API):**
+| Action | Endpoint | Effect |
+|---|---|---|
+| View overdue flags | GET /api/payments/overdue | Returns all OPEN flags |
+| Send manual reminder | POST /api/payments/overdue/{flagId}/remind | Sends WhatsApp message with selected tone |
+| Mark as paid | POST /api/payments/overdue/{flagId}/paid | Sets PAID + resolves flag |
+| Manual trigger (test only) | POST /api/payments/overdue/run-check | Runs check immediately |
+
+**Reminder tones:**
+| Tone | Message Style |
+|---|---|
+| POLITE | Friendly nudge — "we noticed payment is pending" |
+| FIRM | Direct — "payment is overdue, settle immediately" |
+| LEGAL_WARNING | Final notice — "failure to pay may result in legal action" |
+
+**Key files:**
+- `PaymentOverdueFlag.java` — JPA entity mapped to payment_overdue_flags
+- `PaymentOverdueFlagRepository.java` — findByStatus, existsByOrderIdAndStatus
+- `OverduePaymentService.java` — flagging logic, manual reminder, mark paid
+- `OverduePaymentScheduler.java` — daily 9AM cron trigger
+- `OverduePaymentController.java` — REST endpoints
+
+**To test immediately (skip waiting for 9AM):**
+```sql
+-- Force an order to appear 31 days old
+UPDATE orders
+SET created_at = NOW() - INTERVAL '31 days',
+    updated_at = NOW() - INTERVAL '31 days'
+WHERE id = {order_id};
+```
+Then call POST /api/payments/overdue/run-check
+
+**Check overdue flags:**
+```sql
+SELECT id, order_id, status, flagged_at, last_reminder_tone, last_manual_reminder_at
+FROM payment_overdue_flags
+ORDER BY flagged_at DESC;
+```
+
+**Known minor issue:** Log line prints contact ID instead of whatsapp number
+("contact 18" instead of "contact 911111111111") — cosmetic, fix in next pass.
+
+**Verified:** 2026-06-25 — order 18 flagged OVERDUE, POLITE manual reminder
+delivered via simulated WhatsApp send.
