@@ -2,6 +2,8 @@ package com.tradepilot.core.kafka;
 
 import com.tradepilot.core.channel.SendResult;
 import com.tradepilot.core.channel.WhatsAppSenderService;
+import com.tradepilot.core.trade.approval.PendingApproval;
+import com.tradepilot.core.trade.approval.PendingApprovalStore;
 import com.tradepilot.core.webhook.dto.OutboundMessageEvent;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -14,6 +16,7 @@ import org.springframework.stereotype.Component;
 public class OutboundMessageConsumer {
 
     private final WhatsAppSenderService whatsAppSenderService;
+    private final PendingApprovalStore pendingApprovalStore;
 
     @KafkaListener(
             topics = "${tradepilot.kafka.topics.messages-outbound}",
@@ -31,9 +34,21 @@ public class OutboundMessageConsumer {
                     log.error("WhatsApp send failed — to: {} reason: {}", event.getFromNumber(), result.errorReason());
                 }
             }
-            case "PENDING_APPROVAL" ->
+            case "PENDING_APPROVAL" -> {
                 log.info("Message queued for operator approval — messageId: {} to: {}",
                         event.getWhatsappMessageId(), event.getFromNumber());
+                pendingApprovalStore.add(new PendingApproval(
+                        event.getWhatsappMessageId(),
+                        event.getFromNumber(),
+                        event.getCommodity(),
+                        event.getGrade(),
+                        null,
+                        event.getFinalPricePerUnit(),
+                        null,
+                        event.getRoutingDecision(),
+                        event.getProcessedAt()
+                ));
+            }
             case "ESCALATED" ->
                 log.info("Message escalated to human — messageId: {} reason: no price rule or low confidence",
                         event.getWhatsappMessageId());

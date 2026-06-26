@@ -483,3 +483,4 @@ ORDER BY flagged_at DESC;
 
 **Verified:** 2026-06-25 — order 18 flagged OVERDUE, POLITE manual reminder
 delivered via simulated WhatsApp send.
+   

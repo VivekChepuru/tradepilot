@@ -7,7 +7,8 @@ import {
   MessageSquare,
   ShoppingCart,
   Clock,
-  Bell
+  Bell,
+  AlertCircle
 } from 'lucide-react';
 
 export default function DashboardLayout({ children }: { children: ReactNode }) {
@@ -50,6 +51,13 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
           >
             <Clock size={18} />
             <span>Follow-ups</span>
+          </Link>
+          <Link
+            href="/dashboard/overdue"
+            className="flex items-center gap-3 px-3 py-2 rounded-lg text-gray-300 hover:bg-gray-800 hover:text-white transition-colors"
+          >
+            <AlertCircle size={18} />
+            <span>Overdue</span>
           </Link>
           <Link
             href="/dashboard/inbox"

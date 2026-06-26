@@ -25,7 +25,7 @@ export default function OrdersPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-  fetch('http://localhost:8080/api/dashboard/stats', {
+  fetch('http://localhost:8080/api/orders', {
     headers: {
       'Accept': 'application/json',
     },
