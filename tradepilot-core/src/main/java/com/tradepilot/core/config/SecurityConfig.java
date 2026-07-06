@@ -56,6 +56,8 @@ public class SecurityConfig {
                                 "/api/follow-ups/**",
                                 "/api/payments/overdue/**",
                                 "/api/approvals/**",
+                                "/api/price-rules/**",
+                                "/api/negotiation-settings/**",
                                 "/error",
                                 "/test"
                         ).permitAll()

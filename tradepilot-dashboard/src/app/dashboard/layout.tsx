@@ -8,7 +8,9 @@ import {
   ShoppingCart,
   Clock,
   Bell,
-  AlertCircle
+  AlertCircle,
+  Tag,
+  Settings
 } from 'lucide-react';
 
 export default function DashboardLayout({ children }: { children: ReactNode }) {
@@ -58,6 +60,20 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
           >
             <AlertCircle size={18} />
             <span>Overdue</span>
+          </Link>
+          <Link
+            href="/dashboard/price-rules"
+            className="flex items-center gap-3 px-3 py-2 rounded-lg text-gray-300 hover:bg-gray-800 hover:text-white transition-colors"
+          >
+            <Tag size={18} />
+            <span>Price Rules</span>
+          </Link>
+          <Link
+            href="/dashboard/settings"
+            className="flex items-center gap-3 px-3 py-2 rounded-lg text-gray-300 hover:bg-gray-800 hover:text-white transition-colors"
+          >
+            <Settings size={18} />
+            <span>Settings</span>
           </Link>
           <Link
             href="/dashboard/inbox"
