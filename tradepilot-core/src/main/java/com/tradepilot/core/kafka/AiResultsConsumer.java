@@ -79,17 +79,18 @@ public class AiResultsConsumer {
         Map<String, Object> entities = event.getExtractedEntities();
         String commodity = safeString(entities, "commodity");
         String grade = safeString(entities, "grade");
+        String distributorName = safeString(entities, "distributorName");
         Object quantityRaw = entities != null ? entities.get("quantity") : null;
         Double quantity = parseQuantitySafely(quantityRaw, event.getMessageId());
 
         String[] normalized = normalizeCommodityGrade(commodity, grade);
         commodity = normalized[0];
         grade = normalized[1];
-        log.info("Normalized commodity={}, grade={} for messageId={}", commodity, grade, event.getMessageId());
+        log.info("Normalized commodity={}, grade={}, distributor={} for messageId={}", commodity, grade, distributorName, event.getMessageId());
 
         OutboundMessageEvent outbound;
         try {
-            PriceQuote quote = priceCalculationService.calculateQuote(commodity, grade, quantity, null);
+            PriceQuote quote = priceCalculationService.calculateQuote(commodity, grade, quantity, null, distributorName);
 
             String commodityGrade = quote.grade() != null ? quote.commodity() + " " + quote.grade() : quote.commodity();
             String suggestedReply = String.format(

@@ -52,6 +52,12 @@ public class PriceRule {
 
     private String lastUpdatedBy;
 
+    @Column(name = "distributor_id")
+    private Long distributorId;
+
+    @Column(name = "distributor_name")
+    private String distributorName;
+
     @CreationTimestamp
     private LocalDateTime createdAt;
 

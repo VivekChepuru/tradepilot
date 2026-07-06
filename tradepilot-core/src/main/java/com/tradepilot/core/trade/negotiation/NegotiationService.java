@@ -14,32 +14,58 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.util.Map;
+import java.util.Optional;
 
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class NegotiationService {
 
-    private final NegotiationProperties negotiationProperties;
+    private static final BigDecimal DEFAULT_MAX_AUTO_DISCOUNT_PERCENT = BigDecimal.valueOf(2.0);
+    private static final BigDecimal DEFAULT_MAX_ESCALATE_DISCOUNT_PERCENT = BigDecimal.valueOf(5.0);
+
+    private final NegotiationSettingsRepository negotiationSettingsRepository;
+    private final NegotiationOverrideRepository negotiationOverrideRepository;
     private final PriceCalculationService priceCalculationService;
     private final KafkaTemplate<String, Object> kafkaTemplate;
 
     @Value("${tradepilot.kafka.topics.messages-outbound}")
     private String outboundTopic;
 
+    private record NegotiationThresholds(BigDecimal maxAutoPercent, BigDecimal maxEscalatePercent, boolean isEnabled) {}
+
     public void processNegotiation(AiResultEvent event) {
         Map<String, Object> entities = event.getExtractedEntities();
         double requestedDiscountPercent = safeDouble(entities, "discountPercent");
         String commodity = safeString(entities, "commodity");
         String grade = safeString(entities, "grade");
+        String distributorName = safeString(entities, "distributorName");
 
-        double maxAuto = negotiationProperties.getMaxAutoDiscountPercent();
-        double maxEscalate = negotiationProperties.getMaxEscalateDiscountPercent();
+        NegotiationThresholds thresholds = resolveThresholds(commodity);
+
+        if (!thresholds.isEnabled()) {
+            OutboundMessageEvent disabledOutbound = OutboundMessageEvent.builder()
+                    .whatsappMessageId(event.getMessageId())
+                    .fromNumber(event.getFrom())
+                    .suggestedReply("Thank you for your interest. Our team will contact you with pricing options.")
+                    .routingDecision("ESCALATED")
+                    .commodity(commodity)
+                    .grade(grade)
+                    .processedAt(LocalDateTime.now())
+                    .build();
+
+            log.info("Negotiation disabled for commodity={} — escalating messageId={}", commodity, event.getMessageId());
+            kafkaTemplate.send(outboundTopic, event.getFrom(), disabledOutbound);
+            return;
+        }
+
+        double maxAuto = thresholds.maxAutoPercent().doubleValue();
+        double maxEscalate = thresholds.maxEscalatePercent().doubleValue();
 
         OutboundMessageEvent outbound;
 
         if (requestedDiscountPercent <= maxAuto) {
-            PriceQuote quote = priceCalculationService.calculateQuote(commodity, grade, null, null);
+            PriceQuote quote = priceCalculationService.calculateQuote(commodity, grade, null, null, distributorName);
             BigDecimal discountedPrice = quote.finalPricePerUnit()
                     .multiply(BigDecimal.valueOf(1.0 - requestedDiscountPercent / 100.0))
                     .setScale(2, RoundingMode.HALF_UP);
@@ -95,6 +121,33 @@ public class NegotiationService {
         }
 
         kafkaTemplate.send(outboundTopic, event.getFrom(), outbound);
+    }
+
+    private NegotiationThresholds resolveThresholds(String commodity) {
+        Optional<NegotiationOverride> overrideOpt = negotiationOverrideRepository.findByCommodityIgnoreCase(commodity);
+        if (overrideOpt.isPresent()) {
+            NegotiationOverride override = overrideOpt.get();
+            if (Boolean.TRUE.equals(override.getIsNegotiationEnabled())) {
+                return new NegotiationThresholds(
+                        override.getMaxAutoDiscountPercent(),
+                        override.getMaxEscalateDiscountPercent(),
+                        true
+                );
+            }
+            return new NegotiationThresholds(BigDecimal.ZERO, BigDecimal.ZERO, false);
+        }
+
+        return negotiationSettingsRepository.findTopByOrderByUpdatedAtDesc()
+                .map(settings -> new NegotiationThresholds(
+                        settings.getMaxAutoDiscountPercent(),
+                        settings.getMaxEscalateDiscountPercent(),
+                        Boolean.TRUE.equals(settings.getIsNegotiationEnabled())
+                ))
+                .orElseGet(() -> {
+                    log.warn("No global negotiation settings found in database — using hardcoded defaults {}/{} for commodity={}",
+                            DEFAULT_MAX_AUTO_DISCOUNT_PERCENT, DEFAULT_MAX_ESCALATE_DISCOUNT_PERCENT, commodity);
+                    return new NegotiationThresholds(DEFAULT_MAX_AUTO_DISCOUNT_PERCENT, DEFAULT_MAX_ESCALATE_DISCOUNT_PERCENT, true);
+                });
     }
 
     private String safeString(Map<String, Object> map, String key) {

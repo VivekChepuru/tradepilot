@@ -14,4 +14,12 @@ public interface PriceRuleRepository extends JpaRepository<PriceRule, Long> {
         return findFirstByCommodityAndGradeAndIsActiveTrue(commodity, grade)
                 .or(() -> findFirstByCommodityAndGradeIsNullAndIsActiveTrue(commodity));
     }
+
+    Optional<PriceRule> findFirstByCommodityIgnoreCaseAndGradeIgnoreCaseAndDistributorIdAndIsActiveTrue(
+            String commodity, String grade, Long distributorId);
+
+    Optional<PriceRule> findFirstByCommodityIgnoreCaseAndGradeIgnoreCaseAndDistributorIdIsNullAndIsActiveTrue(
+            String commodity, String grade);
+
+    Optional<PriceRule> findFirstByCommodityIgnoreCaseAndGradeIsNullAndDistributorIdIsNullAndIsActiveTrue(String commodity);
 }
