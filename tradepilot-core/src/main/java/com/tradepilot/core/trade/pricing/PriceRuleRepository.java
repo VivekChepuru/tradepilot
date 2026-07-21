@@ -22,4 +22,6 @@ public interface PriceRuleRepository extends JpaRepository<PriceRule, Long> {
             String commodity, String grade);
 
     Optional<PriceRule> findFirstByCommodityIgnoreCaseAndGradeIsNullAndDistributorIdIsNullAndIsActiveTrue(String commodity);
+
+    boolean existsByDistributorId(Long distributorId);
 }

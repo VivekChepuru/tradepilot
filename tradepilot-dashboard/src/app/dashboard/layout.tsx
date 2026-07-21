@@ -10,7 +10,8 @@ import {
   Bell,
   AlertCircle,
   Tag,
-  Settings
+  Settings,
+  Truck
 } from 'lucide-react';
 
 export default function DashboardLayout({ children }: { children: ReactNode }) {
@@ -67,6 +68,13 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
           >
             <Tag size={18} />
             <span>Price Rules</span>
+          </Link>
+          <Link
+            href="/dashboard/distributors"
+            className="flex items-center gap-3 px-3 py-2 rounded-lg text-gray-300 hover:bg-gray-800 hover:text-white transition-colors"
+          >
+            <Truck size={18} />
+            <span>Distributors</span>
           </Link>
           <Link
             href="/dashboard/settings"
